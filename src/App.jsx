@@ -1,10 +1,4 @@
 import { useState, useRef } from "react";
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({
-  apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
 
 const DEFAULT_AXES = [
   { id: 1, leftLabel: "Owner/operator", rightLabel: "Builder/developer", value: 50 },
@@ -178,25 +172,19 @@ export default function App() {
       .map((a, i) => `  ${i + 1}. ${describeAxis(a)}`)
       .join("\n");
 
-    const prompt = `You are a brand copywriter for Ørsted, the Danish global leader in offshore wind and renewable energy.
-
-Generate a single punchy tagline for: "${topicText}"
-
-The tagline's tone must reflect these positioning axes:
-${axisDescriptions}
-
-Rules:
-- Between ${min} and ${max} words
-- No quotation marks, no hashtags, no full stops
-- Return ONLY the tagline — no explanation, no alternatives`;
-
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 64,
-      messages: [{ role: "user", content: prompt }],
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: topicText, axisDescriptions, min, max }),
     });
-    const text = message.content.find((b) => b.type === "text")?.text ?? "";
-    return { tagline: text.trim(), axisSnapshot: axisValues };
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? `Request failed (${res.status})`);
+    }
+
+    const { tagline } = await res.json();
+    return { tagline, axisSnapshot: axisValues };
   }
 
   async function generate() {
