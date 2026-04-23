@@ -76,25 +76,27 @@ function EditableLabel({ value, onChange, align }) {
   );
 }
 
-function AxisRow({ axis, onChange, onDelete, showDelete }) {
+function AxisRow({ axis, onChange, onDelete, showDelete, showSlider }) {
   return (
-    <div className="axis-row">
+    <div className={`axis-row${showSlider ? "" : " axis-row--no-slider"}`}>
       <EditableLabel
         value={axis.leftLabel}
         onChange={(v) => onChange({ ...axis, leftLabel: v })}
         align="left"
       />
-      <div className="slider-track">
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={axis.value}
-          onChange={(e) => onChange({ ...axis, value: Number(e.target.value) })}
-          className="slider"
-          style={{ "--pct": `${axis.value}%` }}
-        />
-      </div>
+      {showSlider && (
+        <div className="slider-track">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={axis.value}
+            onChange={(e) => onChange({ ...axis, value: Number(e.target.value) })}
+            className="slider"
+            style={{ "--pct": `${axis.value}%` }}
+          />
+        </div>
+      )}
       <EditableLabel
         value={axis.rightLabel}
         onChange={(v) => onChange({ ...axis, rightLabel: v })}
@@ -111,6 +113,7 @@ function AxisRow({ axis, onChange, onDelete, showDelete }) {
 
 export default function App() {
   const [axes, setAxes] = useState(DEFAULT_AXES);
+  const [mode, setMode] = useState("shuffle");
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(5);
   const [minWords, setMinWords] = useState(5);
@@ -146,8 +149,8 @@ export default function App() {
     return axes.map((a) => ({ ...a, value: Math.floor(Math.random() * 101) }));
   }
 
-  async function generateOne(topicText, randomAxes, min, max) {
-    const axisDescriptions = randomAxes
+  async function generateOne(topicText, axisValues, min, max) {
+    const axisDescriptions = axisValues
       .map((a, i) => `  ${i + 1}. ${describeAxis(a)}`)
       .join("\n");
 
@@ -169,7 +172,7 @@ Rules:
       messages: [{ role: "user", content: prompt }],
     });
     const text = message.content.find((b) => b.type === "text")?.text ?? "";
-    return { tagline: text.trim(), axisSnapshot: randomAxes };
+    return { tagline: text.trim(), axisSnapshot: axisValues };
   }
 
   async function generate() {
@@ -184,9 +187,11 @@ Rules:
 
     const min = Math.min(minWords, maxWords);
     const max = Math.max(minWords, maxWords);
-    const tasks = Array.from({ length: count }, () =>
-      generateOne(topicText, randomizeAxes(), min, max)
-    );
+
+    const tasks = Array.from({ length: count }, () => {
+      const axisValues = mode === "shuffle" ? randomizeAxes() : axes.map((a) => ({ ...a }));
+      return generateOne(topicText, axisValues, min, max);
+    });
 
     const settled = await Promise.allSettled(tasks);
     const results = settled
@@ -247,8 +252,26 @@ Rules:
         <section className="axes-section">
           <div className="axes-header">
             <span className="section-label">Tone axes</span>
-            <span className="axes-hint">Click any label to edit it</span>
+            <div className="mode-toggle">
+              <button
+                className={`mode-btn${mode === "shuffle" ? " mode-btn--active" : ""}`}
+                onClick={() => setMode("shuffle")}
+              >
+                Shuffle
+              </button>
+              <button
+                className={`mode-btn${mode === "custom" ? " mode-btn--active" : ""}`}
+                onClick={() => setMode("custom")}
+              >
+                Custom
+              </button>
+            </div>
           </div>
+          <p className="axes-hint axes-hint--block">
+            {mode === "shuffle"
+              ? "Axis values are randomised independently for each tagline"
+              : "Set each axis — all taglines use these values. Click any label to edit it."}
+          </p>
 
           {axes.map((axis) => (
             <AxisRow
@@ -257,6 +280,7 @@ Rules:
               onChange={updateAxis}
               onDelete={() => deleteAxis(axis.id)}
               showDelete={axes.length > 1}
+              showSlider={mode === "custom"}
             />
           ))}
 
@@ -349,7 +373,8 @@ Rules:
                       const label = dominantLabel(axis);
                       return (
                         <span className="axis-chip" key={axis.id}>
-                          {label ?? "balanced"} <span className="axis-chip-val">{axis.value}</span>
+                          {label ?? "balanced"}{" "}
+                          <span className="axis-chip-val">{axis.value}</span>
                         </span>
                       );
                     })}
