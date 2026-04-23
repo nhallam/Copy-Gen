@@ -113,6 +113,8 @@ export default function App() {
   const [axes, setAxes] = useState(DEFAULT_AXES);
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(5);
+  const [minWords, setMinWords] = useState(5);
+  const [maxWords, setMaxWords] = useState(10);
   const [outputs, setOutputs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
@@ -144,7 +146,7 @@ export default function App() {
     return axes.map((a) => ({ ...a, value: Math.floor(Math.random() * 101) }));
   }
 
-  async function generateOne(topicText, randomAxes) {
+  async function generateOne(topicText, randomAxes, min, max) {
     const axisDescriptions = randomAxes
       .map((a, i) => `  ${i + 1}. ${describeAxis(a)}`)
       .join("\n");
@@ -157,7 +159,7 @@ The tagline's tone must reflect these positioning axes:
 ${axisDescriptions}
 
 Rules:
-- 5 to 10 words maximum
+- Between ${min} and ${max} words
 - No quotation marks, no hashtags, no full stops
 - Return ONLY the tagline — no explanation, no alternatives`;
 
@@ -180,8 +182,10 @@ Rules:
     setLoading(true);
     setOutputs([]);
 
+    const min = Math.min(minWords, maxWords);
+    const max = Math.max(minWords, maxWords);
     const tasks = Array.from({ length: count }, () =>
-      generateOne(topicText, randomizeAxes())
+      generateOne(topicText, randomizeAxes(), min, max)
     );
 
     const settled = await Promise.allSettled(tasks);
@@ -271,7 +275,7 @@ Rules:
           <div className="generate-controls">
             <div className="count-field">
               <label className="section-label" style={{ marginBottom: 6 }}>
-                How many taglines?
+                How many?
               </label>
               <input
                 className="count-input"
@@ -283,6 +287,30 @@ Rules:
                   setCount(Math.max(1, Math.min(50, Number(e.target.value))))
                 }
               />
+            </div>
+            <div className="count-field">
+              <label className="section-label" style={{ marginBottom: 6 }}>
+                Word length
+              </label>
+              <div className="word-range">
+                <input
+                  className="count-input"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={minWords}
+                  onChange={(e) => setMinWords(Math.max(1, Number(e.target.value)))}
+                />
+                <span className="word-range-sep">–</span>
+                <input
+                  className="count-input"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={maxWords}
+                  onChange={(e) => setMaxWords(Math.max(1, Number(e.target.value)))}
+                />
+              </div>
             </div>
             <button
               className="btn btn--primary"

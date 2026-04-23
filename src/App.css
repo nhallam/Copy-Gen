@@ -369,6 +369,17 @@ html, body {
   box-shadow: 0 0 0 3px rgba(74, 95, 196, 0.12);
 }
 
+.word-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.word-range-sep {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
 .error-msg {
   font-size: 13px;
   color: #c00;
