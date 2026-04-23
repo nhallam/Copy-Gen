@@ -24,6 +24,12 @@ function describeAxis(axis) {
   return `emphatically "${rightLabel}" (avoid anything that sounds like "${leftLabel}")`;
 }
 
+function dominantLabel(axis) {
+  if (axis.value <= 35) return axis.leftLabel;
+  if (axis.value >= 65) return axis.rightLabel;
+  return null;
+}
+
 function EditableLabel({ value, onChange, align }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -106,9 +112,11 @@ function AxisRow({ axis, onChange, onDelete, showDelete }) {
 export default function App() {
   const [axes, setAxes] = useState(DEFAULT_AXES);
   const [topic, setTopic] = useState("");
-  const [output, setOutput] = useState("");
+  const [count, setCount] = useState(5);
+  const [outputs, setOutputs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState(null);
+  const [copiedAll, setCopiedAll] = useState(false);
   const [error, setError] = useState("");
   const nextId = useRef(axes.length + 1);
 
@@ -128,25 +136,18 @@ export default function App() {
     ]);
   }
 
-  async function generate() {
-    if (!topic.trim()) {
-      setError("Please enter a topic or brief.");
-      return;
-    }
-    setError("");
-    setLoading(true);
-    setOutput("");
+  function resetAxes() {
+    setAxes(DEFAULT_AXES.map((a) => ({ ...a })));
+  }
 
-    const axisDescriptions = axes
+  function randomizeAxes() {
+    return axes.map((a) => ({ ...a, value: Math.floor(Math.random() * 101) }));
+  }
+
+  async function generateOne(topicText, randomAxes) {
+    const axisDescriptions = randomAxes
       .map((a, i) => `  ${i + 1}. ${describeAxis(a)}`)
       .join("\n");
-
-    const topicText = topic.trim();
-    if (!topicText) {
-      setError("Please enter a topic or brief.");
-      setLoading(false);
-      return;
-    }
 
     const prompt = `You are a brand copywriter for Ørsted, the Danish global leader in offshore wind and renewable energy.
 
@@ -160,31 +161,59 @@ Rules:
 - No quotation marks, no hashtags, no full stops
 - Return ONLY the tagline — no explanation, no alternatives`;
 
-    try {
-      const message = await client.messages.create({
-        model: "claude-haiku-4-5",
-        max_tokens: 64,
-        messages: [{ role: "user", content: prompt }],
-      });
-      const text = message.content.find((b) => b.type === "text")?.text ?? "";
-      setOutput(text.trim());
-    } catch (err) {
-      setError(err.message ?? "Something went wrong. Check your API key.");
-    } finally {
-      setLoading(false);
-    }
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 64,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    return { tagline: text.trim(), axisSnapshot: randomAxes };
   }
 
-  function copyToClipboard() {
-    if (!output) return;
-    navigator.clipboard.writeText(output).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  async function generate() {
+    const topicText = topic.trim();
+    if (!topicText) {
+      setError("Please enter a topic or brief.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    setOutputs([]);
+
+    const tasks = Array.from({ length: count }, () =>
+      generateOne(topicText, randomizeAxes())
+    );
+
+    const settled = await Promise.allSettled(tasks);
+    const results = settled
+      .filter((r) => r.status === "fulfilled" && r.value.tagline)
+      .map((r) => r.value);
+
+    if (results.length === 0) {
+      setError("No taglines were generated. Please try again.");
+    } else {
+      setOutputs(results);
+      if (results.length < count) {
+        setError(`Generated ${results.length} of ${count} taglines. Some requests failed.`);
+      }
+    }
+
+    setLoading(false);
+  }
+
+  function copyOne(tagline, index) {
+    navigator.clipboard.writeText(tagline).then(() => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
     });
   }
 
-  function resetAxes() {
-    setAxes(DEFAULT_AXES.map((a) => ({ ...a })));
+  function copyAll() {
+    const text = outputs.map((o, i) => `${i + 1}. ${o.tagline}`).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2000);
+    });
   }
 
   return (
@@ -239,25 +268,67 @@ Rules:
 
         <section className="generate-section">
           {error && <p className="error-msg">{error}</p>}
-          <button
-            className="btn btn--primary"
-            onClick={generate}
-            disabled={loading}
-          >
-            {loading ? (
-              <span className="spinner" />
-            ) : (
-              "Generate tagline"
-            )}
-          </button>
+          <div className="generate-controls">
+            <div className="count-field">
+              <label className="section-label" style={{ marginBottom: 6 }}>
+                How many taglines?
+              </label>
+              <input
+                className="count-input"
+                type="number"
+                min={1}
+                max={50}
+                value={count}
+                onChange={(e) =>
+                  setCount(Math.max(1, Math.min(50, Number(e.target.value))))
+                }
+              />
+            </div>
+            <button
+              className="btn btn--primary"
+              onClick={generate}
+              disabled={loading}
+            >
+              {loading ? <span className="spinner" /> : `Generate ${count > 1 ? `${count} taglines` : "tagline"}`}
+            </button>
+          </div>
         </section>
 
-        {output && (
+        {outputs.length > 0 && (
           <section className="output-section">
-            <p className="tagline-output">{output}</p>
-            <button className="btn btn--copy" onClick={copyToClipboard}>
-              {copied ? "Copied!" : "Copy to clipboard"}
-            </button>
+            <div className="output-header">
+              <span className="section-label" style={{ marginBottom: 0 }}>
+                {outputs.length} tagline{outputs.length !== 1 ? "s" : ""}
+              </span>
+              <button className="btn btn--copy" onClick={copyAll}>
+                {copiedAll ? "Copied!" : "Copy all"}
+              </button>
+            </div>
+            <div className="output-list">
+              {outputs.map((result, i) => (
+                <div className="output-card" key={i}>
+                  <div className="output-card-top">
+                    <p className="tagline-output">{result.tagline}</p>
+                    <button
+                      className="btn btn--copy"
+                      onClick={() => copyOne(result.tagline, i)}
+                    >
+                      {copiedIndex === i ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                  <div className="axis-chips">
+                    {result.axisSnapshot.map((axis) => {
+                      const label = dominantLabel(axis);
+                      return (
+                        <span className="axis-chip" key={axis.id}>
+                          {label ?? "balanced"} <span className="axis-chip-val">{axis.value}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
         )}
       </main>
