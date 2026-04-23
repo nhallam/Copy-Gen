@@ -141,9 +141,16 @@ export default function App() {
       .map((a, i) => `  ${i + 1}. ${describeAxis(a)}`)
       .join("\n");
 
+    const topicText = topic.trim();
+    if (!topicText) {
+      setError("Please enter a topic or brief.");
+      setLoading(false);
+      return;
+    }
+
     const prompt = `You are a brand copywriter for Ørsted, the Danish global leader in offshore wind and renewable energy.
 
-Generate a single punchy tagline for: "${topic.trim()}"
+Generate a single punchy tagline for: "${topicText}"
 
 The tagline's tone must reflect these positioning axes:
 ${axisDescriptions}
