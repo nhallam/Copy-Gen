@@ -209,9 +209,10 @@ export default function App() {
     const results = settled
       .filter((r) => r.status === "fulfilled" && r.value.tagline)
       .map((r) => r.value);
+    const firstError = settled.find((r) => r.status === "rejected")?.reason?.message;
 
     if (results.length === 0) {
-      setError("No taglines were generated. Please try again.");
+      setError(firstError ?? "No taglines were generated. Please try again.");
     } else {
       setOutputs(results);
       if (results.length < count) {
