@@ -76,6 +76,30 @@ function EditableLabel({ value, onChange, align }) {
   );
 }
 
+function NumberInput({ value, onChange, min, max, className }) {
+  const [draft, setDraft] = useState(String(value));
+
+  function handleBlur() {
+    const n = parseInt(draft, 10);
+    const clamped = isNaN(n) ? min : Math.max(min, Math.min(max, n));
+    setDraft(String(clamped));
+    onChange(clamped);
+  }
+
+  return (
+    <input
+      type="number"
+      className={className}
+      min={min}
+      max={max}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={handleBlur}
+      onFocus={(e) => e.target.select()}
+    />
+  );
+}
+
 function AxisRow({ axis, onChange, onDelete, showDelete, showSlider }) {
   return (
     <div className={`axis-row${showSlider ? "" : " axis-row--no-slider"}`}>
@@ -301,15 +325,12 @@ Rules:
               <label className="section-label" style={{ marginBottom: 6 }}>
                 How many?
               </label>
-              <input
+              <NumberInput
                 className="count-input"
-                type="number"
                 min={1}
                 max={50}
                 value={count}
-                onChange={(e) =>
-                  setCount(Math.max(1, Math.min(50, Number(e.target.value))))
-                }
+                onChange={setCount}
               />
             </div>
             <div className="count-field">
@@ -317,22 +338,20 @@ Rules:
                 Word length
               </label>
               <div className="word-range">
-                <input
+                <NumberInput
                   className="count-input"
-                  type="number"
                   min={1}
                   max={50}
                   value={minWords}
-                  onChange={(e) => setMinWords(Math.max(1, Number(e.target.value)))}
+                  onChange={setMinWords}
                 />
                 <span className="word-range-sep">–</span>
-                <input
+                <NumberInput
                   className="count-input"
-                  type="number"
                   min={1}
                   max={50}
                   value={maxWords}
-                  onChange={(e) => setMaxWords(Math.max(1, Number(e.target.value)))}
+                  onChange={setMaxWords}
                 />
               </div>
             </div>
