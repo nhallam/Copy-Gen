@@ -1,0 +1,46 @@
+---
+interface Props {
+  title?: string;
+}
+const { title = 'Portfolio' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <style>
+      @font-face {
+        font-family: 'American Grotesk Condensed';
+        src:
+          url('/fonts/AmericanGroteskCondensed-Black.woff2') format('woff2'),
+          url('/fonts/AmericanGroteskCondensed-Black.woff') format('woff');
+        font-weight: 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html, body {
+        height: 100%;
+      }
+
+      body {
+        background-color: #ffffff;
+        color: #000000;
+        font-family: 'American Grotesk Condensed', 'Arial Narrow', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+    </style>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
